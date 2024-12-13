@@ -163,8 +163,31 @@ class LeafNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
+        int index = Collections.binarySearch(keys, key);
+        if (index >= 0) {
+            throw new BPlusTreeException("Duplicate key");
+        }
 
-        return Optional.empty();
+        index = -index - 1;
+        keys.add(index, key);
+        rids.add(index, rid);
+
+        if (keys.size() <= 2 * metadata.getOrder()) {
+            // no split
+            sync();
+            return Optional.empty();
+        }
+
+        int mid = keys.size() / 2;
+        List<DataBox> newKeys = new ArrayList<>(keys.subList(mid, keys.size()));
+        List<RecordId> newRids = new ArrayList<>(rids.subList(mid, rids.size()));
+        keys = new ArrayList<>(keys.subList(0, mid));
+        rids = new ArrayList<>(rids.subList(0, mid));
+
+        LeafNode newNode = new LeafNode(metadata, bufferManager, newKeys, newRids, rightSibling, treeContext);
+        rightSibling = Optional.of(newNode.getPage().getPageNum());
+        sync();
+        return Optional.of(new Pair<>(newKeys.get(0), newNode.getPage().getPageNum()));
     }
 
     // See BPlusNode.bulkLoad.

@@ -1,5 +1,6 @@
 package edu.berkeley.cs186.database.index;
 
+import edu.berkeley.cs186.database.Database;
 import edu.berkeley.cs186.database.common.Buffer;
 import edu.berkeley.cs186.database.common.Pair;
 import edu.berkeley.cs186.database.concurrency.LockContext;
@@ -100,8 +101,33 @@ class InnerNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
+        int index = numLessThanEqual(key, keys);
+        Optional<Pair<DataBox, Long>> newChild = getChild(index).put(key, rid);
+        if (!newChild.isPresent()) {
+            return Optional.empty();
+        }
 
-        return Optional.empty();
+        DataBox newKey = newChild.get().getFirst();
+        Long newChildPageNum = newChild.get().getSecond();
+        int insertIndex = numLessThan(newKey, keys);
+        keys.add(insertIndex, newKey);
+        children.add(insertIndex + 1, newChildPageNum);
+
+        if (keys.size() <= 2 * metadata.getOrder()) {
+            sync();
+            return Optional.empty();
+        }
+
+        int mid = keys.size() / 2;
+        List<DataBox> right_keys = new ArrayList<>(keys.subList(mid + 1, keys.size()));
+        List<Long> right_children = new ArrayList<>(children.subList(mid + 1, children.size()));
+        DataBox split_key = keys.get(mid);
+        keys = new ArrayList<>(keys.subList(0, mid));
+        children = new ArrayList<>(children.subList(0, mid + 1));
+
+        InnerNode newInnerNode = new InnerNode(metadata, bufferManager, right_keys, right_children, treeContext);
+        sync();
+        return Optional.of(new Pair<>(split_key, newInnerNode.getPage().getPageNum()));
     }
 
     // See BPlusNode.bulkLoad.
