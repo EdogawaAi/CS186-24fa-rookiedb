@@ -376,8 +376,29 @@ class LeafNode extends BPlusNode {
         // Note: LeafNode has two constructors. To implement fromBytes be sure to
         // use the constructor that reuses an existing page instead of fetching a
         // brand new one.
+        // 1.读取节点类型
+        Page page = bufferManager.fetchPage(treeContext, pageNum);
+        Buffer buf = page.getBuffer();
 
-        return null;
+        byte nodeType = buf.get();
+        assert(nodeType == (byte) 1);
+
+        //2.读取右兄弟节点
+        long rightSiblingPageNum = buf.getLong();
+        Optional<Long> rightSibling = rightSiblingPageNum == -1 ? Optional.empty() : Optional.of(rightSiblingPageNum);
+
+        //3.读取键值对数量
+        int numPairs = buf.getInt();
+
+        //4.读取键值对
+        List<DataBox> keys = new ArrayList<>();
+        List<RecordId> rids = new ArrayList<>();
+        for (int i = 0; i < numPairs; i++) {
+            keys.add(DataBox.fromBytes(buf, metadata.getKeySchema()));
+            rids.add(RecordId.fromBytes(buf));
+        }
+
+        return new LeafNode(metadata, bufferManager, page, keys, rids, rightSibling, treeContext);
     }
 
     // Builtins ////////////////////////////////////////////////////////////////
