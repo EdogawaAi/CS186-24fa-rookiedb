@@ -205,7 +205,7 @@ public class BPlusTree {
         // TODO(proj2): Return a BPlusTreeIterator.
         LeafNode LeftMostLeaf = root.getLeftmostLeaf();
 
-        return new BPlusTreeIterator(LeftMostLeaf, LeftMostLeaf.getKeys().get(0));
+        return new BPlusTreeIterator(LeftMostLeaf);
     }
 
     /**
@@ -302,6 +302,23 @@ public class BPlusTree {
         // Note: You should NOT update the root variable directly.
         // Use the provided updateRoot() helper method to change
         // the tree's root if the old root splits.
+        if (scanAll().hasNext()) {
+            throw new RuntimeException("Tree is not empty");
+        }
+
+        while (data.hasNext()) {
+            Optional<Pair<DataBox, Long>> result = root.bulkLoad(data, fillFactor);
+            if (result.isPresent()) {
+                Pair<DataBox, Long> pair = result.get();
+                List<DataBox> keys = new ArrayList<>();
+                List<Long> children = new ArrayList<>();
+                keys.add(pair.getFirst());
+                children.add(root.getPage().getPageNum());
+                children.add(pair.getSecond());
+                BPlusNode newRoot = new InnerNode(metadata, bufferManager, keys, children, lockContext);
+                updateRoot(newRoot);
+            }
+        }
 
         return;
     }
@@ -439,11 +456,14 @@ public class BPlusTree {
         // TODO(proj2): Add whatever fields and constructors you want here.
         private LeafNode currentNode;
         private Iterator<RecordId> currentIterator;
-        private DataBox startKey;
+
+        public BPlusTreeIterator(LeafNode startNode) {
+            currentNode = startNode;
+            currentIterator = startNode.scanAll();
+        }
 
         public BPlusTreeIterator(LeafNode startNode, DataBox startKey) {
             currentNode = startNode;
-            this.startKey = startKey;
             currentIterator = startNode.scanGreaterEqual(startKey);
         }
 

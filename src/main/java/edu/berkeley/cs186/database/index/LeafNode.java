@@ -187,12 +187,7 @@ class LeafNode extends BPlusNode {
         LeafNode newNode = new LeafNode(metadata, bufferManager, newKeys, newRids, rightSibling, treeContext);
         rightSibling = Optional.of(newNode.getPage().getPageNum());
         sync();
-        // return Optional.of(new Pair<>(newKeys.get(0), newNode.getPage().getPageNum()));
-        if (!newKeys.isEmpty()) {
-            return Optional.of(new Pair<>(newKeys.get(0), newNode.getPage().getPageNum()));
-        } else {
-            return Optional.empty();
-        }
+        return Optional.of(new Pair<>(newKeys.get(0), newNode.getPage().getPageNum()));
     }
 
     // See BPlusNode.bulkLoad.
@@ -209,12 +204,12 @@ class LeafNode extends BPlusNode {
         }
 
         // if more data, then split
-        if (keys.size() > maxKeys) {
-            int mid = keys.size() / 2;
-            List<DataBox> newKeys = new ArrayList<>(keys.subList(mid, keys.size()));
-            List<RecordId> newRids = new ArrayList<>(rids.subList(mid, rids.size()));
-            keys = new ArrayList<>(keys.subList(0, mid));
-            rids = new ArrayList<>(rids.subList(0, mid));
+        if (data.hasNext()) {
+            Pair<DataBox, RecordId> newLeaf = data.next();
+            List<DataBox> newKeys = new ArrayList<>();
+            List<RecordId> newRids = new ArrayList<>();
+            newKeys.add(newLeaf.getFirst());
+            newRids.add(newLeaf.getSecond());
 
             LeafNode newNode = new LeafNode(metadata, bufferManager, newKeys, newRids, rightSibling, treeContext);
             rightSibling = Optional.of(newNode.getPage().getPageNum());
