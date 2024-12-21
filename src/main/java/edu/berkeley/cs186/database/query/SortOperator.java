@@ -87,7 +87,12 @@ public class SortOperator extends QueryOperator {
      */
     public Run sortRun(Iterator<Record> records) {
         // TODO(proj3_part1): implement
-        return null;
+        List<Record> recordList = new ArrayList<>();
+        while (records.hasNext()) {
+            recordList.add(records.next());
+        }
+        recordList.sort(comparator);
+        return makeRun(recordList);
     }
 
     /**
@@ -105,10 +110,48 @@ public class SortOperator extends QueryOperator {
      *
      * @return a single sorted run obtained by merging the input runs
      */
+    // 我们从算法设计的角度来分析一下mergeSort的写法，这次我们来写一点不一样的mergeSort。我们不再使用递归的方式，而是使用queue的方式来实现mergeSort。
+    private Run mergeTwoRuns(Run run1, Run run2) {
+        List<Record> mergedRecords = new ArrayList<>();
+        Iterator<Record> iter1 = run1.iterator();
+        Iterator<Record> iter2 = run2.iterator();
+
+        Record record1 = iter1.hasNext() ? iter1.next() : null;
+        Record record2 = iter2.hasNext() ? iter2.next() : null;
+
+        while (record1 != null && record2 != null) {
+            if (comparator.compare(record1, record2) < 0) {
+                mergedRecords.add(record1);
+                record1 = iter1.hasNext() ? iter1.next() : null;
+            } else {
+                mergedRecords.add(record2);
+                record2 = iter2.hasNext() ? iter2.next() : null;
+            }
+        }
+
+        while (record1 != null) {
+            mergedRecords.add(record1);
+            record1 = iter1.hasNext() ? iter1.next() : null;
+        }
+
+        while (record2 != null) {
+            mergedRecords.add(record2);
+            record2 = iter2.hasNext() ? iter2.next() : null;
+        }
+        return makeRun(mergedRecords);
+    }
+
     public Run mergeSortedRuns(List<Run> runs) {
         assert (runs.size() <= this.numBuffers - 1);
         // TODO(proj3_part1): implement
-        return null;
+        List<Record> mergedRecords = new ArrayList<>();
+        Queue<Run> queue = new LinkedList<>(runs);
+        while (queue.size() > 1) {
+            Run run1 = queue.poll();
+            Run run2 = queue.poll();
+            queue.add(mergeTwoRuns(run1, run2));
+        }
+        return queue.isEmpty() ? null : queue.poll();
     }
 
     /**
@@ -133,7 +176,15 @@ public class SortOperator extends QueryOperator {
      */
     public List<Run> mergePass(List<Run> runs) {
         // TODO(proj3_part1): implement
-        return Collections.emptyList();
+        List<Run> result = new ArrayList<>();
+        int numRuns = runs.size();
+        int numBuffers = this.numBuffers - 1;
+        for (int i = 0; i < numRuns; i += numBuffers) {
+            int end = Math.min(i + numBuffers, numRuns);
+            List<Run> sublist = runs.subList(i, end);
+            result.add(mergeSortedRuns(sublist));
+        }
+        return result;
     }
 
     /**
@@ -147,9 +198,20 @@ public class SortOperator extends QueryOperator {
     public Run sort() {
         // Iterator over the records of the relation we want to sort
         Iterator<Record> sourceIterator = getSource().iterator();
+        List<Run> initialRuns = new ArrayList<>();
+
+        while (sourceIterator.hasNext()) {
+            Iterator<Record> blockIterator = getBlockIterator(sourceIterator, getSchema(), numBuffers);
+            initialRuns.add(sortRun(blockIterator));
+        }
+
+        List<Run> finalRuns = initialRuns;
+        while (finalRuns.size() > 1) {
+            finalRuns = mergePass(finalRuns);
+        }
 
         // TODO(proj3_part1): implement
-        return makeRun(); // TODO(proj3_part1): replace this!
+        return finalRuns.get(0); // TODO(proj3_part1): replace this!
     }
 
     /**
