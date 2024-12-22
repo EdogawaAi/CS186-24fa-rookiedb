@@ -21,9 +21,41 @@ public enum LockType {
         if (a == null || b == null) {
             throw new NullPointerException("null lock type");
         }
+        /**
+         * Compatibility Matrix
+         * (Boolean value in cell answers is `left` compatible with `top`?)
+         *
+         *     | NL  | IS  | IX  |  S  | SIX |  X
+         * ----+-----+-----+-----+-----+-----+-----
+         * NL  |  T  |  T  |  T  |  T  |  T  |  T
+         * ----+-----+-----+-----+-----+-----+-----
+         * IS  |  T  |  T  |  T  |  T  |     |
+         * ----+-----+-----+-----+-----+-----+-----
+         * IX  |  T  |  T  |  T  |  F  |     |
+         * ----+-----+-----+-----+-----+-----+-----
+         * S   |  T  |  T  |  F  |  T  |  F  |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         * SIX |  T  |     |     |  F  |     |
+         * ----+-----+-----+-----+-----+-----+-----
+         * X   |  T  |     |     |  F  |     |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         *
+         * The filled in cells are covered by the public tests.
+         * You can expect the blank cells to be covered by the hidden tests!
+         * Hint: I bet the notes might have something useful for this...
+         */
         // TODO(proj4_part1): implement
+        // S, X, IS, IX, SIX, NL
+        boolean[][] compatibilityMatrix = {
+                {true, false, true, false, false, true},
+                {false, false, false, false, false, true},
+                {true, false, true, true, false, true},
+                {false, false, true, true, false, true},
+                {false, false, false, false, false, true},
+                {true, true, true, true, true, true}
+        };
 
-        return false;
+        return compatibilityMatrix[a.ordinal()][b.ordinal()];
     }
 
     /**
@@ -53,9 +85,40 @@ public enum LockType {
         if (parentLockType == null || childLockType == null) {
             throw new NullPointerException("null lock type");
         }
+        /**
+         * Parent Matrix
+         * (Boolean value in cell answers can `left` be the parent of `top`?)
+         *
+         *     | NL  | IS  | IX  |  S  | SIX |  X
+         * ----+-----+-----+-----+-----+-----+-----
+         * NL  |  T  |  F  |  F  |  F  |  F  |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         * IS  |  T  |  T  |  F  |  T  |  F  |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         * IX  |  T  |  T  |  T  |  T  |  T  |  T
+         * ----+-----+-----+-----+-----+-----+-----
+         * S   |  T  |     |     |     |     |
+         * ----+-----+-----+-----+-----+-----+-----
+         * SIX |  T  |     |     |     |     |
+         * ----+-----+-----+-----+-----+-----+-----
+         * X   |  T  |     |     |     |     |
+         * ----+-----+-----+-----+-----+-----+-----
+         *
+         * The filled in cells are covered by the public test.
+         * You can expect the blank cells to be covered by the hidden tests!
+         */
         // TODO(proj4_part1): implement
+        boolean[][] parentMatrix = {
+                // S, X, IS, IX, SIX, NL
+                {false, false, false, false, false, true},
+                {false, false, false, false, false, true},
+                {true, false, true, false, false, true},
+                {true, true, true, true, true, true},
+                {false, false, false, false, false, true},
+                {false, false, false, false, false, true}
+        };
 
-        return false;
+        return parentMatrix[parentLockType.ordinal()][childLockType.ordinal()];
     }
 
     /**
@@ -68,9 +131,46 @@ public enum LockType {
         if (required == null || substitute == null) {
             throw new NullPointerException("null lock type");
         }
+        /**
+         * Substitutability Matrix
+         * (Values along left are `substitute`, values along top are `required`)
+         *
+         *     | NL  | IS  | IX  |  S  | SIX |  X
+         * ----+-----+-----+-----+-----+-----+-----
+         * NL  |  T  |  F  |  F  |  F  |  F  |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         * IS  |     |  T  |  F  |  F  |     |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         * IX  |     |  T  |  T  |  F  |     |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         * S   |     |     |     |  T  |     |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         * SIX |     |     |     |  T  |     |  F
+         * ----+-----+-----+-----+-----+-----+-----
+         * X   |     |     |     |  T  |     |  T
+         * ----+-----+-----+-----+-----+-----+-----
+         *
+         * The filled in cells are covered by the public test.
+         * You can expect the blank cells to be covered by the hidden tests!
+         *
+         * The boolean value in the cell answers the question:
+         * "Can `left` substitute `top`?"
+         *
+         * or alternatively:
+         * "Are the privileges of `left` a superset of those of `top`?"
+         */
         // TODO(proj4_part1): implement
+        boolean[][] substitutabilityMatrix = {
+                // S, X, IS, IX, SIX, NL
+                {true, false, false, false, false, false},
+                {true, true, false, false, false, false},
+                {false, false, true, false, false, false},
+                {false, false, true, true, false, false},
+                {true, false, false, false, false, false},
+                {false, false, false, false, false, true}
+        };
 
-        return false;
+        return substitutabilityMatrix[substitute.ordinal()][required.ordinal()];
     }
 
     /**
