@@ -81,6 +81,9 @@ public class LockManager {
                 }
             }
             locks.add(lock);
+            // add lock to transaction
+            transactionLocks.putIfAbsent(lock.transactionNum, new ArrayList<>());
+            transactionLocks.get(lock.transactionNum).add(lock);
             return;
         }
 
@@ -91,6 +94,7 @@ public class LockManager {
         public void releaseLock(Lock lock) {
             // TODO(proj4_part1): implement
             locks.remove(lock);
+            transactionLocks.get(lock.transactionNum).remove(lock);
             processQueue();
             return;
         }
@@ -125,7 +129,7 @@ public class LockManager {
                 if (checkCompatible(request.lock.lockType, request.transaction.getTransNum())) {
                     waitingQueue.removeFirst();
                     grantOrUpdateLock(request.lock);
-                    for (Lock lock : locks) {
+                    for (Lock lock : request.releasedLocks) {
                         release(request.transaction, lock.name);
                     }
                     request.transaction.unblock();
@@ -260,7 +264,7 @@ public class LockManager {
             }
             else {
                 shouldBlock = true;
-                entry.addToQueue(new LockRequest(transaction, new Lock(name, lockType, transaction.getTransNum()), null), false);
+                entry.addToQueue(new LockRequest(transaction, new Lock(name, lockType, transaction.getTransNum())), false);
                 transaction.prepareBlock();
             }
         }
@@ -337,7 +341,7 @@ public class LockManager {
             }
             else {
                 shouldBlock = true;
-                entry.addToQueue(new LockRequest(transaction, new Lock(name, newLockType, transaction.getTransNum()), null), true);
+                entry.addToQueue(new LockRequest(transaction, new Lock(name, newLockType, transaction.getTransNum())), true);
                 transaction.prepareBlock();
             }
         }
