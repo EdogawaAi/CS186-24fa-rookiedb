@@ -160,7 +160,7 @@ public class ARIESRecoveryManager implements RecoveryManager {
         assert (transactionTableEntry != null);
 
         //2.经检查，如果事务的状态是ABORTING，那么就要回滚
-        if (transactionTableEntry.transaction.getStatus().equals(Transaction.Status.ABORTING)) {
+        if (transactionTableEntry.transaction.getStatus() == Transaction.Status.ABORTING) {
             //3.回滚到LSN
             rollbackToLSN(transNum, 0L);
         }
@@ -202,6 +202,18 @@ public class ARIESRecoveryManager implements RecoveryManager {
         // back from the next record that hasn't yet been undone.
         long currentLSN = lastRecord.getUndoNextLSN().orElse(lastRecordLSN);
         // TODO(proj5) implement the rollback logic described above
+        //1.循环回滚日志记录，直到currentLSN <= LSN
+        while (currentLSN > LSN) {
+            LogRecord record = logManager.fetchLogRecord(currentLSN);
+
+            if (record.isUndoable()) {
+                LogRecord clr = record.undo(transactionEntry.lastLSN);
+                long clrLSN = logManager.appendToLog(clr);
+                transactionEntry.lastLSN = clrLSN;
+                clr.redo(this, diskSpaceManager, bufferManager);
+            }
+            currentLSN = record.getPrevLSN().orElse(0L);
+        }
     }
 
     /**
