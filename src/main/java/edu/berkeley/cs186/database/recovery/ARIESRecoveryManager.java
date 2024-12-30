@@ -782,6 +782,49 @@ public class ARIESRecoveryManager implements RecoveryManager {
      */
     void restartUndo() {
         // TODO(proj5): implement
+        // 创建一个初始化的撤销集合
+        PriorityQueue<Pair<Long, Long>> undoLSNs = new PriorityQueue<>(Comparator.comparing(Pair<Long, Long>::getSecond).reversed());
+
+        for (Long transNum : transactionTable.keySet()) {
+            Transaction transaction = transactionTable.get(transNum).transaction;
+            if (transaction.getStatus() == Transaction.Status.RECOVERY_ABORTING) {
+                undoLSNs.add(new Pair<>(transNum, transactionTable.get(transNum).lastLSN));
+            }
+        }
+
+        //2.反复撤销日志记录，即撤销最大的LSN日志记录
+        while (!undoLSNs.isEmpty()) {
+            Pair<Long, Long> pair = undoLSNs.poll();
+            long transNum = pair.getFirst();
+            long lastLSN = pair.getSecond();
+            LogRecord record = logManager.fetchLogRecord(lastLSN);
+            TransactionTableEntry transactionTableEntry = transactionTable.get(transNum);
+
+            if (record.isUndoable()) {
+                // 生成CLR并追加到日志中
+                LogRecord clr = record.undo(transactionTableEntry.lastLSN);
+                long clrLSN = logManager.appendToLog(clr);
+                transactionTableEntry.lastLSN = clrLSN;
+                // 执行CLR的重做操作
+                clr.redo(this, diskSpaceManager, bufferManager);
+                // 更新事务表中的lastLSN
+
+            }
+            //将dirty页添加到dirty页表中
+            long nextLSN = 0L;
+            if (record.getUndoNextLSN().isPresent()) {
+                nextLSN = record.getUndoNextLSN().get();
+            } else {
+                nextLSN = record.getPrevLSN().orElse(0L);
+            }
+
+            if (nextLSN == 0L) {
+                transactionTableEntry.transaction.cleanup();
+                end(transNum);
+                continue;
+            }
+            undoLSNs.add(new Pair<>(transNum, nextLSN));
+        }
         return;
     }
 
