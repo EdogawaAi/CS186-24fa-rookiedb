@@ -458,6 +458,8 @@ public class ARIESRecoveryManager implements RecoveryManager {
         long savepointLSN = transactionEntry.getSavepoint(name);
 
         // TODO(proj5): implement
+        //调用rollbackToLSN方法回滚到savepoint(保存点)的LSN
+        rollbackToLSN(transNum, savepointLSN);
         return;
     }
 
