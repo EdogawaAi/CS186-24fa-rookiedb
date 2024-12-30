@@ -721,6 +721,49 @@ public class ARIESRecoveryManager implements RecoveryManager {
      */
     void restartRedo() {
         // TODO(proj5): implement
+        //1.确定redo的起点
+        if (dirtyPageTable.isEmpty()) {
+            return; //如果dirty页表是空的，直接返回
+        }
+
+        long minRecLSN = Collections.min(dirtyPageTable.values());
+        //从最小的recLSN开始扫描日志记录
+        Iterator<LogRecord> iter = logManager.scanFrom(minRecLSN);
+        while (iter.hasNext()) {
+            LogRecord record = iter.next();
+
+            //分区相关的记录，AllocPart, UndoAllocPart, FreePart, UndoFreePart, 总是redo
+            if (record.getType() == LogType.ALLOC_PART || record.getType() == LogType.UNDO_ALLOC_PART || record.getType() == LogType.FREE_PART || record.getType() == LogType.UNDO_FREE_PART) {
+                record.redo(this, diskSpaceManager, bufferManager);
+                continue;
+            }
+
+            //分配页面的记录，AllocPage, UndoFreePage, 总是redo
+            if (record.getType() == LogType.ALLOC_PAGE || record.getType() == LogType.UNDO_FREE_PAGE) {
+                record.redo(this, diskSpaceManager, bufferManager);
+                continue;
+            }
+
+            //修改页面的记录，UpdatePage, UndoUpdatePage, FreePage, UndoAllocPage
+            //检查
+            //1. page在dirty页表中
+            //2. record 的 LSN >= 该页面的recLSN
+            //3. pageLSN < record 的 LSN
+            if (record.getType() == LogType.UPDATE_PAGE || record.getType() == LogType.UNDO_UPDATE_PAGE || record.getType() == LogType.UNDO_ALLOC_PAGE || record.getType() == LogType.FREE_PAGE) {
+                long pageNum = record.getPageNum().get();
+                if (dirtyPageTable.containsKey(pageNum) && record.getLSN() >= dirtyPageTable.get(pageNum)) {
+                    Page page = bufferManager.fetchPage(new DummyLockContext(), pageNum);
+                    try {
+                        long pageLSN = page.getPageLSN();
+                        if (pageLSN < record.getLSN()) {
+                            record.redo(this, diskSpaceManager, bufferManager);
+                        }
+                    } finally {
+                        page.unpin();
+                    }
+                }
+            }
+        }
         return;
     }
 
