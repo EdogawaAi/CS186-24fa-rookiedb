@@ -93,7 +93,22 @@ public class ARIESRecoveryManager implements RecoveryManager {
     @Override
     public long commit(long transNum) {
         // TODO(proj5): implement
-        return -1L;
+        //1. 获取事务表中的事务lists
+        TransactionTableEntry transactionTableEntry = transactionTable.get(transNum);
+        assert (transactionTableEntry != null);
+
+        //2.获取事务的最后一个LSN
+        long prevLSN = transactionTableEntry.lastLSN;
+        //3.创建一个commit log record
+        LogRecord record = new CommitTransactionLogRecord(transNum, prevLSN);
+        //4.将commit log record写入到log中
+        long LSN = logManager.appendToLog(record);
+        transactionTableEntry.lastLSN = LSN;
+        //5.将log flush到磁盘
+        logManager.flushToLSN(LSN);
+        //6.更新事务的状态
+        transactionTableEntry.transaction.setStatus(Transaction.Status.COMMITTING);
+        return LSN;
     }
 
     /**
@@ -109,7 +124,20 @@ public class ARIESRecoveryManager implements RecoveryManager {
     @Override
     public long abort(long transNum) {
         // TODO(proj5): implement
-        return -1L;
+        //1. 获取事务表中的事务lists
+        TransactionTableEntry transactionTableEntry = transactionTable.get(transNum);
+        assert (transactionTableEntry != null);
+
+        //2.获取事务的最后一个LSN
+        long prevLSN = transactionTableEntry.lastLSN;
+        //3.创建一个abort 日志(log)记录(record)
+        LogRecord record = new AbortTransactionLogRecord(transNum, prevLSN);
+        //4.将abort log record写入到log中
+        long LSN = logManager.appendToLog(record);
+        transactionTableEntry.lastLSN = LSN;
+        //5.更新事务的状态为ABORTING
+        transactionTableEntry.transaction.setStatus(Transaction.Status.ABORTING);
+        return LSN;
     }
 
     /**
@@ -127,7 +155,26 @@ public class ARIESRecoveryManager implements RecoveryManager {
     @Override
     public long end(long transNum) {
         // TODO(proj5): implement
-        return -1L;
+        //1. 获取事务表中的事务lists
+        TransactionTableEntry transactionTableEntry = transactionTable.get(transNum);
+        assert (transactionTableEntry != null);
+
+        //2.经检查，如果事务的状态是ABORTING，那么就要回滚
+        if (transactionTableEntry.transaction.getStatus().equals(Transaction.Status.ABORTING)) {
+            //3.回滚到LSN
+            rollbackToLSN(transNum, 0L);
+        }
+        //4.创建结束(end)日志(log)记录(record)
+        long prevLSN = transactionTableEntry.lastLSN;
+        LogRecord record = new EndTransactionLogRecord(transNum, prevLSN);
+        //5.将结束(end) log record写入到log中
+        long LSN = logManager.appendToLog(record);
+        transactionTableEntry.lastLSN = LSN;
+        //6.更新事务的状态为COMPLETE
+        transactionTableEntry.transaction.setStatus(Transaction.Status.COMPLETE);
+        //7.将事务从事务表中删除
+        transactionTable.remove(transNum);
+        return LSN;
     }
 
     /**
@@ -205,7 +252,25 @@ public class ARIESRecoveryManager implements RecoveryManager {
         assert (before.length == after.length);
         assert (before.length <= BufferManager.EFFECTIVE_PAGE_SIZE / 2);
         // TODO(proj5): implement
-        return -1L;
+        //1. 获取事务表中的事务lists
+        TransactionTableEntry transactionTableEntry = transactionTable.get(transNum);
+        assert (transactionTableEntry != null);
+
+        //2.获取事务的最后一个LSN
+        long prevLSN = transactionTableEntry.lastLSN;
+
+        //3.创建一个update page log record
+        LogRecord record = new UpdatePageLogRecord(transNum, pageNum, prevLSN, pageOffset, before, after);
+
+        //4.将update page log record写入到log中
+        long LSN = logManager.appendToLog(record);
+
+        //5.更新事务的lastLSN
+        transactionTableEntry.lastLSN = LSN;
+
+        //6.将page标记为dirty
+        dirtyPage(pageNum, LSN);
+        return LSN;
     }
 
     /**
